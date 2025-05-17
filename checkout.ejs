@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handicraft Checkout</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .checkout-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .razorpay-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            background: #f8f9fa;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #card-element {
+            border: 1px solid #ced4da;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="checkout-container">
+            <h2 class="mb-4 text-center">Secure Checkout</h2>
+            
+            <!-- Customer Details -->
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="name" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="email" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" id="phone" class="form-control" required>
+                    </div>
+                </div>
+
+                <!-- Payment Section -->
+                <div class="col-md-6">
+                    <div class="razorpay-card">
+                        <h5 class="mb-3">Payment Details</h5>
+                        <div id="card-element"></div>
+                        <div id="card-errors" class="text-danger mt-2"></div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="order-summary mt-4">
+                        <h5 class="mb-3">Order Summary</h5>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Subtotal:</span>
+                            <span>₹1500.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Shipping:</span>
+                            <span>₹100.00</span>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between fw-bold">
+                            <span>Total:</span>
+                            <span>₹1600.00</span>
+                        </div>
+                    </div>
+
+                    <button id="rzp-button" class="btn btn-primary w-100 mt-4">
+                        Pay ₹1600.00
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Razorpay Integration -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+        // Initialize Razorpay
+        const options = {
+            key: "rzp_test_YOUR_KEY_ID", // Replace with your key
+            amount: "160000", // ₹1600.00 in paise
+            currency: "INR",
+            name: "Handicraft Store",
+            description: "Order Payment",
+            image: "/logo.png",
+            handler: async function(response) {
+                document.querySelector('.loading-overlay').style.display = 'flex';
+                
+                try {
+                    // Verify payment on your server
+                    const verification = await fetch('/verify-payment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_signature: response.razorpay_signature,
+                            customer_details: {
+                                name: document.getElementById('name').value,
+                                email: document.getElementById('email').value,
+                                phone: document.getElementById('phone').value
+                            }
+                        })
+                    });
+
+                    const result = await verification.json();
+                    if (result.success) {
+                        window.location.href = '/order-confirmation';
+                    } else {
+                        alert('Payment verification failed');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Payment failed');
+                } finally {
+                    document.querySelector('.loading-overlay').style.display = 'none';
+                }
+            },
+            prefill: {
+                name: "",
+                email: "",
+                contact: ""
+            },
+            theme: {
+                color: "#3399cc"
+            }
+        };
+
+        const rzp = new Razorpay(options);
+        
+        document.getElementById('rzp-button').onclick = function(e) {
+            e.preventDefault();
+            
+            // Validate form
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+
+            if (!name || !email || !phone) {
+                alert('Please fill all required fields');
+                return;
+            }
+
+            // Update prefill data
+            options.prefill = {
+                name: name,
+                email: email,
+                contact: phone
+            };
+
+            rzp.open();
+        }
+    </script>
+</body>
+</html>
